@@ -215,10 +215,10 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height  size   speed   r     g     b
-    addPlanet(  1.2,   0.0,   0.18,  0.005,  0.2,  0.5,  1.0 );
-    addPlanet(  0.8,   0.1,   0.10,  0.012,  0.8,  0.3,  0.1 );
-    addPlanet(  1.6,  -0.1,   0.25,  0.003,  0.4,  0.8,  0.3 );
-    addPlanet(  0.5,   0.2,   0.08,  0.020,  0.9,  0.8,  0.2 );
+    addPlanet(  1.2,   0.0,   0.18,  0.005,  0.2,  0.5,  1.0 ); //blue
+    addPlanet(  0.8,   0.0,   0.10,  0.012,  0.8,  0.3,  0.1 ); //orange
+    addPlanet(  1.6,   0.0,   0.25,  0.003,  0.4,  0.8,  0.3 ); //green
+    addPlanet(  0.5,   0.0,   0.08,  0.020,  0.9,  0.8,  0.2 ); //yellow
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);

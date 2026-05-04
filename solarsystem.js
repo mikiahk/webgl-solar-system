@@ -22,14 +22,14 @@ var vc = vec4(-0.816497, -0.471405, 0.333333, 1);
 var vd = vec4(0.816497, -0.471405, 0.333333, 1);
 
 var vertices = [
-    vec4(-2.0, -2.0,  2.0, 1.0),
-    vec4(-2.0,  2.0,  2.0, 1.0),
-    vec4( 2.0,  2.0,  2.0, 1.0),
-    vec4( 2.0, -2.0,  2.0, 1.0),
-    vec4(-2.0, -2.0, -2.0, 1.0),
-    vec4(-2.0,  2.0, -2.0, 1.0),
-    vec4( 2.0,  2.0, -2.0, 1.0),
-    vec4( 2.0, -2.0, -2.0, 1.0)
+    vec4(-3.0, -3.0,  3.0, 1.0),
+    vec4(-3.0,  3.0,  3.0, 1.0),
+    vec4( 3.0,  3.0,  3.0, 1.0),
+    vec4( 3.0, -3.0,  3.0, 1.0),
+    vec4(-3.0, -3.0, -3.0, 1.0),
+    vec4(-3.0,  3.0, -3.0, 1.0),
+    vec4( 3.0,  3.0, -3.0, 1.0),
+    vec4( 3.0, -3.0, -3.0, 1.0)
 ];
 
 var vertexColors = [
@@ -129,28 +129,33 @@ window.onload = function init() {
     var program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
 
+	// make skybox
     colorCube();
 
+	// make stars
     for (var i = 0; i < numStar; i++) {
-        var r1 = Math.random() * 2 - 1;
-        var r2 = Math.random() * 2 - 1;
+        var r1 = Math.random() * 6 - 3;
+		var r2 = Math.random() * 6 - 3;
         var c = Math.floor(Math.random() * 6) + 1;
         colorsArray.push(vec4(1.0, 1.0, 1.0, 1.0));
-        if (c === 1) pointsArray.push(vec4(0.99, r1, r2, 1));
-        else if (c === 2) pointsArray.push(vec4(-0.99, r1, r2, 1));
-        else if (c === 3) pointsArray.push(vec4(r1, 0.99, r2, 1));
-        else if (c === 4) pointsArray.push(vec4(r1, -0.99, r2, 1));
-        else if (c === 5) pointsArray.push(vec4(r1, r2, 0.99, 1));
-        else pointsArray.push(vec4(r1, r2, -0.99, 1));
+        if (c === 1) pointsArray.push(vec4(2.99, r1, r2, 1));
+        else if (c === 2) pointsArray.push(vec4(-2.99, r1, r2, 1));
+        else if (c === 3) pointsArray.push(vec4(r1, 2.99, r2, 1));
+        else if (c === 4) pointsArray.push(vec4(r1, -2.99, r2, 1));
+        else if (c === 5) pointsArray.push(vec4(r1, r2, 2.99, 1));
+        else pointsArray.push(vec4(r1, r2, -2.99, 1));
     }
 	
+	// make sun
 	tetrahedron(va, vb, vc, vd, numTimesToSubdivide);
 	
 
+	// color sun
 	for (var i = 0; i < sphereIndex; i++) {
 		colorsArray.push(vec4(1.0, 0.647, 0.0));
 	}
 
+	// scale sphere
 	var sphereScale = 0.2;
 	for (var i = 0; i < spherePoints.length; i++) {
 		pointsArray.push(vec4(
@@ -180,6 +185,8 @@ window.onload = function init() {
     modelView = gl.getUniformLocation(program, "modelView");
     projection = gl.getUniformLocation(program, "projection");
 
+
+    // movement
     document.addEventListener("keydown", function(event) {
         var forward = vec3(
             Math.cos(theta) * Math.sin(phi),
@@ -252,9 +259,9 @@ var render = function() {
     gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
     gl.uniformMatrix4fv(projection, false, flatten(pMatrix));
 
-    gl.drawArrays(gl.TRIANGLES, 0, 36);
-    gl.drawArrays(gl.POINTS, 36, numStar);
-	gl.drawArrays(gl.TRIANGLES, 36 + numStar, sphereIndex);
-
+    gl.drawArrays(gl.TRIANGLES, 0, 36); // skybox
+    gl.drawArrays(gl.POINTS, 36, numStar); // stars
+	gl.drawArrays(gl.TRIANGLES, 36 + numStar, sphereIndex); // Sun
+	
     requestAnimFrame(render);
 };

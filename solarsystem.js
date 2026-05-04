@@ -180,13 +180,6 @@ window.onload = function init() {
     modelView = gl.getUniformLocation(program, "modelView");
     projection = gl.getUniformLocation(program, "projection");
 
-    var fovSlider = document.getElementById("FOVslider");
-    var pitchSlider = document.getElementById("Pitchslider");
-    var yawSlider = document.getElementById("Yawslider");
-    fovSlider.oninput = function(){fovy = parseFloat(fovSlider.value);}
-    pitchSlider.oninput = function(){theta = parseFloat(pitchSlider.value);}
-    yawSlider.oninput = function(){phi = parseFloat(yawSlider.value);}
-
     document.addEventListener("keydown", function(event) {
         var forward = vec3(
             Math.cos(theta) * Math.sin(phi),

@@ -46,19 +46,21 @@ var vertices = [
     vec4( 3.0, -3.0, -3.0, 1.0)
 ];
 
-var sphereIndex = 0;
-var spherePoints = [];
+var sunIndex = 0;
+var sunPoints = [];
 
+// for creating and orbiting tje planets around the sun
 var planets = [];
-var unitSpherePoints = [];
-var unitSphereCount  = 0;
+var spherePoints = [];
+var sphereCount = 0;
+var orbitAngles = [];
 
 
 function triangle(a, b, c) {
-    spherePoints.push(a);
-    spherePoints.push(b);
-    spherePoints.push(c);
-    sphereIndex += 3;
+    sunPoints.push(a);
+    sunPoints.push(b);
+    sunPoints.push(c);
+    sunIndex += 3;
 }
 
 function divideTriangle(a, b, c, count) {
@@ -125,27 +127,36 @@ function createSphere() {
     }
 
     tetra(va, vb, vc, vd, numTimesToSubdivide);
-    unitSpherePoints = tmpPoints;
-    unitSphereCount  = tmpIndex;
+    spherePoints = tmpPoints;
+    sphereCount  = tmpIndex;
 }
 
-function makePlanet(x, y, z, size, r, g, b) {
+/*
+* Uodated so instead of x, y, z, it just has the distance from the center for orbit
+* Distance: how far from sun, 
+* Height: what y level it orbits on
+* Size is radius of planet
+* Speed: how fast the orbit is
+* r,g,b: color values 
+*/
+function addPlanet(distance, height, size, speed, r, g, b) {
     var start = pointsArray.length;
     var color = vec4(r, g, b, 1.0);
 
-    for (var i = 0; i < unitSpherePoints.length; i++) {
-        var p = unitSpherePoints[i];
+    for (var i = 0; i < spherePoints.length; i++) {
+        var p = spherePoints[i];
         pointsArray.push(vec4(
-            p[0] * size + x,
-            p[1] * size + y,
-            p[2] * size + z,
+            p[0] * size,
+            p[1] * size,
+            p[2] * size,
             1.0
         ));
         colorsArray.push(color);
     }
 
-    var planet = { x:x, y:y, z:z, size:size, color:color, start:start, count:unitSphereCount };
+    var planet = { distance:distance, height:height, size:size, speed:speed, color:color, start:start, count:sphereCount };
     planets.push(planet);
+    orbitAngles.push(Math.random() * 2 * Math.PI);
     return planet;
 }
 
@@ -186,28 +197,28 @@ window.onload = function init() {
     tetrahedron(va, vb, vc, vd, numTimesToSubdivide);
 
     // color sun
-    for (var i = 0; i < sphereIndex; i++) {
+    for (var i = 0; i < sunIndex; i++) {
         colorsArray.push(vec4(1.0, 0.647, 0.0, 1.0));
     }
 
     // scale sphere
-    var sphereScale = 0.2;
-    for (var i = 0; i < spherePoints.length; i++) {
+    var sunScale = 0.2;
+    for (var i = 0; i < sunPoints.length; i++) {
         pointsArray.push(vec4(
-            spherePoints[i][0] * sphereScale,
-            spherePoints[i][1] * sphereScale,
-            spherePoints[i][2] * sphereScale,
+            sunPoints[i][0] * sunScale,
+            sunPoints[i][1] * sunScale,
+            sunPoints[i][2] * sunScale,
             1.0
         ));
     }
 
     createSphere();
 
-    // add planets here: 
-    makePlanet(  1.2,  0.0, -1.9,  0.18,  0.2,  0.5,  1.0 ); // blue
-    makePlanet( -1.0,  0.3, -1.5,  0.10,  0.8,  0.3,  0.1 ); //orange
-    makePlanet(  0.5, -0.4, -2.2,  0.25,  0.4,  0.8,  0.3 ); // green
-    makePlanet( -0.6,  0.5, -2.7,  0.08,  0.9,  0.8,  0.2 ); // yellow
+    //          dist   height  size   speed   r     g     b
+    addPlanet(  1.2,   0.0,   0.18,  0.005,  0.2,  0.5,  1.0 );
+    addPlanet(  0.8,   0.1,   0.10,  0.012,  0.8,  0.3,  0.1 );
+    addPlanet(  1.6,  -0.1,   0.25,  0.003,  0.4,  0.8,  0.3 );
+    addPlanet(  0.5,   0.2,   0.08,  0.020,  0.9,  0.8,  0.2 );
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -299,11 +310,22 @@ var render = function() {
 
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.drawArrays(gl.POINTS, 36, numStar);
-    gl.drawArrays(gl.TRIANGLES, 36 + numStar, sphereIndex);
+    gl.drawArrays(gl.TRIANGLES, 36 + numStar, sunIndex);
 
+    // spawns planets and matrix multiplaction for orbit
     for (var i = 0; i < planets.length; i++) {
-        gl.drawArrays(gl.TRIANGLES, planets[i].start, planets[i].count);
+        var p = planets[i];
+        orbitAngles[i] += p.speed;
+        var x = p.distance * Math.cos(orbitAngles[i]);
+        var z = p.distance * Math.sin(orbitAngles[i]);
+
+        var orbitMatrix = translate(x, p.height, z);
+        var orbitMV = mult(mvMatrix, orbitMatrix);
+        gl.uniformMatrix4fv(modelView, false, flatten(orbitMV));
+        gl.drawArrays(gl.TRIANGLES, p.start, p.count);
     }
+
+    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
 
     requestAnimFrame(render);
 };

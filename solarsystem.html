@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+
+attribute  vec4 vPosition;
+attribute  vec4 vColor;
+varying vec4 fColor;
+
+uniform mat4 modelView;
+uniform mat4 projection;
+
+void main() 
+{
+    gl_Position = projection*modelView*vPosition;
+    fColor = vColor;
+	gl_PointSize = 3.0;
+    
+} 
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+precision mediump float;
+
+varying vec4 fColor;
+
+void
+main()
+{    
+    gl_FragColor = fColor;
+}
+</script>
+
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="initShaders.js"></script>
+<script type="text/javascript" src="MV.js"></script>
+<script type="text/javascript" src="solarsystem.js"></script>
+
+<body>
+
+<p> </p>
+<button id = "Button1">Increase Z</button>
+<button id = "Button2">Decrease Z</button>
+<br/>
+
+<br/>
+<label>FOV</label>
+<input id="FOVslider" type="range" min="0.0" max="180" step="1.0" value="90">
+<br/>
+
+<br/>
+<label>Pitch</label>
+<input id="Pitchslider" type="range" min="0.0" max="3.14" step="0.01" value="0">
+<br/>
+
+<br/>
+<label>Yaw</label>
+<input id="Yawslider" type="range" min="0.0" max="6.28" step="0.01" value="0">
+<br/>
+<br/>
+
+
+
+<canvas id="gl-canvas" width="768" height="768">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+
+</body>
+</html>

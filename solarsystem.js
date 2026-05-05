@@ -5,6 +5,13 @@ var canvas;
 var gl;
 var program;
 
+// -- texture mapping globals ---
+var texCoordArray = [];
+var vTexCoordLoc;
+var uUseTextureLoc;
+var texBuffer;
+var textures = {};
+
 // --- scene settings ---
 const SUBDIVISIONS = 4; // sphere smoothness
 const SKYBOX_SIZE = 5.0
@@ -24,7 +31,7 @@ var colorsArray = [];
 // --- shader uniform handles ---
 var mvMatrix, pMatrix; // matrix values
 var modelView, projection; // uniform locations for the matrices
-
+ 
 var aspect; // width/height ratio of the canvas
 
 // --- camera look direction ---
@@ -67,7 +74,6 @@ var sunPoints = [];
 var planets = [];
 var spherePoints = [];
 var sphereCount = 0;
-var orbitAngles = [];
 
 // -----------------------------------------------------------------------
 // --- sun geometery helpers ---
@@ -166,7 +172,7 @@ function createSphere() {
 // -----------------------------------------------------------------------
 // --- build planets ---
 // -----------------------------------------------------------------------
-function addPlanet(distance, height, size, speed, r, g, b) {
+function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
     var start = vertices.length;
     var color = vec4(r, g, b, 1.0);
 
@@ -179,6 +185,14 @@ function addPlanet(distance, height, size, speed, r, g, b) {
             1.0
         ));
         colorsArray.push(color);
+
+        if(textureName){
+            var u = 0.5 + Math.atan2(p[2], p[0]) / (2.0 * Math.PI);
+            var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, p[1]))) / Math.PI;
+            texCoordArray.push(vec2(u,v)); // parametric calculation
+        }else{
+            texCoordArray.push(vec2(0.0, 0.0)); // placeholder to keep alignment
+        }
     }
 
     var planet = { 
@@ -188,12 +202,34 @@ function addPlanet(distance, height, size, speed, r, g, b) {
         speed:speed, 
         color:color, 
         start:start, 
-        count:sphereCount 
+        count:sphereCount,
+        textureName: textureName || null,
+        orbitAngle: (Math.random() * 2 * Math.PI) // random starting orbit
+        // orbitAngle: 0.0 // same starting orbit
     };
 
     planets.push(planet);
-    orbitAngles.push(Math.random() * 2 * Math.PI);
     return planet;
+}
+
+function loadTexture(name, imageId){
+    var tex = gl.createTexture();
+    var image = document.getElementById(imageId);
+    
+    function upload(){
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        textures[name] = tex;
+    }
+    
+    image.onload = upload;
+    if(image.complete) upload();
+
 }
 
 
@@ -206,7 +242,7 @@ window.onload = function init() {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     aspect = canvas.width / canvas.height;
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
     program = initShaders(gl, "vertex-shader", "fragment-shader");
@@ -249,13 +285,19 @@ window.onload = function init() {
         ));
     }
 
+    var nonPlanetCount = 36 + NUM_STARS + sunIndex;
+    for (var i = 0; i < nonPlanetCount; i++){
+        texCoordArray.push(vec2(0.0, 0.0)); // placeholder to keep alignment
+    }
+
     createSphere();
 
-    //        dist   height size   speed    r     g     b
-    addPlanet(0.5,   0.0,   0.08,  0.0020,  0.9,  0.8,  0.2); //yellow
-    addPlanet(1.25,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1); //orange
-    addPlanet(2.5,   0.0,   0.18,  0.0005,  0.2,  0.5,  1.0); //blue
-    addPlanet(3.75,  0.0,   0.25,  0.0003,  0.4,  0.8,  0.3); //green
+    //          dist   height size   speed    r     g     b
+    buildPlanet(0.50,  0.0,   0.08,  0.0200,  0.9,  0.8,  0.2, null); //yellow
+    buildPlanet(1.25,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null); //orange
+    buildPlanet(1.75,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
+    buildPlanet(2.75,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
+    buildPlanet(4.00,  0.0,   0.50,  0.0003,  0.0,  0.0,  0.0, "jupiter"); //jupiter
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -272,7 +314,23 @@ window.onload = function init() {
     var vPosition = gl.getAttribLocation(program, "vPosition");
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
+//------------------
+    texBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoordArray), gl.STATIC_DRAW);
 
+    vTexCoordLoc = gl.getAttribLocation(program, "vTexCoord");
+    gl.vertexAttribPointer(vTexCoordLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoordLoc);
+
+    uUseTextureLoc = gl.getUniformLocation(program, "uUseTexture");
+    var uTextureLoc = gl.getUniformLocation(program, "uTexture");
+
+
+    loadTexture("earth", "earth");
+    loadTexture("mars", "mars");
+    loadTexture("jupiter", "jupiter");
+//------------------
     modelView  = gl.getUniformLocation(program, "modelView");
     projection = gl.getUniformLocation(program, "projection");
 
@@ -373,16 +431,25 @@ var render = function() {
     // planets and matrix multiplaction for orbit
     for (var i = 0; i < planets.length; i++) {
         var planet = planets[i];
-        orbitAngles[i] += planet.speed;
-        var x = planet.distance * Math.cos(orbitAngles[i]);
-        var z = planet.distance * Math.sin(orbitAngles[i]);
+        planet.orbitAngle += planet.speed;
+        var x = planet.distance * Math.cos(planet.orbitAngle);
+        var z = planet.distance * Math.sin(planet.orbitAngle);
 
         var orbitMV = mult(mvMatrix, translate(x, planet.height, z));
-
         gl.uniformMatrix4fv(modelView, false, flatten(orbitMV));
+
+        if(planet.textureName && textures[planet.textureName]){
+            gl.uniform1f(uUseTextureLoc, 1.0); // set to texture and send texture
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, textures[planet.textureName]);
+        }else{
+            gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for other planets
+        }
+
         gl.drawArrays(gl.TRIANGLES, planet.start, planet.count);
     }
 
+    gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
     gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
 
     requestAnimFrame(render);

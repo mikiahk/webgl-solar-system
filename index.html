@@ -1,8 +1,51 @@
 <!DOCTYPE html>
 <html>
+<head>
+  <style>
+    @font-face {
+      font-family: handwriting;
+      src: url('handwriting.ttf') format('truetype');
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: handwriting, cursive;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 768px;
+      height: 768px;
+    }
+
+    canvas {
+      display: block;
+    }
+	  
+    .overlay-text {
+	position: absolute;
+	bottom: 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	color: white;
+	font-weight: bold;
+	font-size: 1.4rem;
+	text-shadow: 0 0 5px black;
+	pointer-events: none;
+	width: 90%;
+	text-align: center;
+}
+	
+
+  </style>
+</head>
 
 <script id="vertex-shader" type="x-shader/x-vertex">
-
 attribute vec4 vPosition;
 attribute vec4 vColor;
 attribute vec2 vTexCoord;
@@ -21,13 +64,11 @@ void main()
     fColor = vColor;
     fTexCoord = vTexCoord;
     fUseTexture = uUseTexture;
-	gl_PointSize = 3.0;
-    
+    gl_PointSize = 3.0;
 } 
 </script>
 
 <script id="fragment-shader" type="x-shader/x-fragment">
-
 precision mediump float;
 
 varying vec4 fColor;
@@ -36,12 +77,11 @@ varying float fUseTexture;
 
 uniform sampler2D uTexture;
 
-void
-main()
+void main()
 {    
     if (fUseTexture > 0.5){
         gl_FragColor = texture2D(uTexture, fTexCoord);
-    }else{
+    } else {
         gl_FragColor = fColor;
     }
 }
@@ -54,14 +94,16 @@ main()
 
 <body>
 
-<canvas id="gl-canvas" width="768" height="768">
-Oops ... your browser doesn't support the HTML5 canvas element
-</canvas>
+<div class="canvas-container">
+  <canvas id="gl-canvas" width="768" height="768">
+    Oops ... your browser doesn't support the HTML5 canvas element
+  </canvas>
+  <p class="overlay-text">Controls: WASD for movement, EQ for elevation, and scroll wheel for fov. Press ESC to dismiss.</p>
+</div>
 
-<!-- <img id="earth" src="earth_texture.jpg" width="0" height="0"></img> -->
- <img id="earth" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
- <img id="mars" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/mars_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
- <img id="jupiter" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/jupiter_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
+<img id="earth" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0">
+<img id="mars" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/mars_texture.jpg" crossorigin="anonymous" width="0" height="0">
+<img id="jupiter" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/jupiter_texture.jpg" crossorigin="anonymous" width="0" height="0">
 
 </body>
 </html>

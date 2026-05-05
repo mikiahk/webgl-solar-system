@@ -3,17 +3,24 @@
 
 <script id="vertex-shader" type="x-shader/x-vertex">
 
-attribute  vec4 vPosition;
-attribute  vec4 vColor;
+attribute vec4 vPosition;
+attribute vec4 vColor;
+attribute vec2 vTexCoord;
+
 varying vec4 fColor;
+varying vec2 fTexCoord;
+varying float fUseTexture;
 
 uniform mat4 modelView;
 uniform mat4 projection;
+uniform float uUseTexture;
 
 void main() 
 {
-    gl_Position = projection*modelView*vPosition;
+    gl_Position = projection * modelView * vPosition;
     fColor = vColor;
+    fTexCoord = vTexCoord;
+    fUseTexture = uUseTexture;
 	gl_PointSize = 3.0;
     
 } 
@@ -24,11 +31,19 @@ void main()
 precision mediump float;
 
 varying vec4 fColor;
+varying vec2 fTexCoord;
+varying float fUseTexture;
+
+uniform sampler2D uTexture;
 
 void
 main()
 {    
-    gl_FragColor = fColor;
+    if (fUseTexture > 0.5){
+        gl_FragColor = texture2D(uTexture, fTexCoord);
+    }else{
+        gl_FragColor = fColor;
+    }
 }
 </script>
 
@@ -42,6 +57,11 @@ main()
 <canvas id="gl-canvas" width="768" height="768">
 Oops ... your browser doesn't support the HTML5 canvas element
 </canvas>
+
+<!-- <img id="earth" src="earth_texture.jpg" width="0" height="0"></img> -->
+ <img id="earth" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
+ <img id="mars" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/mars_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
+ <img id="jupiter" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/jupiter_texture.jpg" crossorigin="anonymous" width="0" height="0"></img>
 
 </body>
 </html>

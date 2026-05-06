@@ -19,8 +19,8 @@
 
     .canvas-container {
       position: relative;
-      width: 768px;
-      height: 768px;
+      width: 1600px;
+      height: 900px;
     }
 
     canvas {
@@ -32,12 +32,12 @@
 	bottom: 10px;
 	left: 50%;
 	transform: translateX(-50%);
-	color: white;
+	color: limegreen;
 	font-weight: bold;
-	font-size: 1.4rem;
+	font-size: 1.6rem;
 	text-shadow: 0 0 5px black;
 	pointer-events: none;
-	width: 90%;
+	width: 95%;
 	text-align: center;
 }
 	
@@ -95,10 +95,10 @@ void main()
 <body>
 
 <div class="canvas-container">
-  <canvas id="gl-canvas" width="768" height="768">
+  <canvas id="gl-canvas" width="1600" height="900">
     Oops ... your browser doesn't support the HTML5 canvas element
   </canvas>
-  <p class="overlay-text">Controls: WASD for movement, EQ for elevation, and scroll wheel for fov. Press ESC to dismiss.</p>
+  <p id="controls" class="overlay-text">Controls: W/S — move forward/back · A/D — strafe left/right · Q/E — descend/ascend · Click & drag — look around · Scroll — zoom H — hide</p>
 </div>
 
 <img id="earth" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0">

@@ -18,6 +18,7 @@ const SKYBOX_SIZE = 5.0
 const NUM_STARS = 500; // number of random stars scattered on the skybox walls
 const MOVE_SPEED = 0.05;
 const MOUSE_DPI = 0.005;
+var controls = true; // controls show if true
 
 // perspective camera
 var fovy = 90.0; // field of view in degrees
@@ -204,8 +205,9 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
         start:start, 
         count:sphereCount,
         textureName: textureName || null,
-        orbitAngle: (Math.random() * 2 * Math.PI) // random starting orbit
+        orbitAngle: (Math.random() * 2 * Math.PI), // random starting orbit
         // orbitAngle: 0.0 // same starting orbit
+		selfRotationAngle: 0.0
     };
 
     planets.push(planet);
@@ -258,12 +260,19 @@ window.onload = function init() {
         var r2 = Math.random() * SKYBOX_SIZE * 2 - SKYBOX_SIZE;
         var c = Math.floor(Math.random() * 6) + 1;
         colorsArray.push(vec4(1.0, 1.0, 1.0, 1.0));
-        if      (c === 1) vertices.push(vec4( SKYBOX_SIZE - offset, r1,   r2,   1));
-        else if (c === 2) vertices.push(vec4(-SKYBOX_SIZE + offset, r1,   r2,   1));
-        else if (c === 3) vertices.push(vec4( r1,   SKYBOX_SIZE - offset, r2,   1));
-        else if (c === 4) vertices.push(vec4( r1,  -SKYBOX_SIZE + offset, r2,   1));
-        else if (c === 5) vertices.push(vec4( r1,   r2,   SKYBOX_SIZE - offset, 1));
-        else              vertices.push(vec4( r1,   r2,  -SKYBOX_SIZE + offset, 1));
+        if (c === 1) {
+			vertices.push(vec4( SKYBOX_SIZE - offset, r1,   r2,   1));
+		} else if (c === 2) {
+			vertices.push(vec4(-SKYBOX_SIZE + offset, r1,   r2,   1));
+		} else if (c === 3) {
+			vertices.push(vec4( r1,   SKYBOX_SIZE - offset, r2,   1));
+		} else if (c === 4) {
+			vertices.push(vec4( r1,  -SKYBOX_SIZE + offset, r2,   1));
+		} else if (c === 5) {
+			vertices.push(vec4( r1,   r2,   SKYBOX_SIZE - offset, 1));
+		} else {
+			vertices.push(vec4( r1,   r2,  -SKYBOX_SIZE + offset, 1));
+		}
     }
 
     // make sun
@@ -293,7 +302,7 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b
-    buildPlanet(0.50,  0.0,   0.08,  0.0200,  0.9,  0.8,  0.2, null); //yellow
+    buildPlanet(0.50,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null); //yellow
     buildPlanet(1.25,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null); //orange
     buildPlanet(1.75,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
     buildPlanet(2.75,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
@@ -373,6 +382,11 @@ window.onload = function init() {
         if (event.key.toLowerCase() == 'q'){
             eye[1] -= MOVE_SPEED
         }
+		// key handler event for showing controls
+		if (event.key.toLowerCase() === "h") {
+			controls = !controls;
+			document.getElementById("controls").style.display = controls ? "block" : "none";
+		}
     
     });
 
@@ -432,10 +446,12 @@ var render = function() {
     for (var i = 0; i < planets.length; i++) {
         var planet = planets[i];
         planet.orbitAngle += planet.speed;
+		planet.selfRotationAngle += 0.0005 / planet.size;
         var x = planet.distance * Math.cos(planet.orbitAngle);
         var z = planet.distance * Math.sin(planet.orbitAngle);
 
         var orbitMV = mult(mvMatrix, translate(x, planet.height, z));
+		orbitMV = mult(orbitMV, rotate(planet.selfRotationAngle * (180 / Math.PI), vec3(0, 1, 0)));
         gl.uniformMatrix4fv(modelView, false, flatten(orbitMV));
 
         if(planet.textureName && textures[planet.textureName]){

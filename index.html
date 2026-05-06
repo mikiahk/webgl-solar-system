@@ -57,9 +57,11 @@ varying float fUseTexture;
 uniform mat4 modelView;
 uniform mat4 projection;
 uniform float uUseTexture;
+varying vec3 fragmentPosition;
 
 void main() 
 {
+	fragmentPosition = vPosition.xyz;
     gl_Position = projection * modelView * vPosition;
     fColor = vColor;
     fTexCoord = vTexCoord;
@@ -76,10 +78,99 @@ varying vec2 fTexCoord;
 varying float fUseTexture;
 
 uniform sampler2D uTexture;
+uniform float partOfSun;
+varying vec3 fragmentPosition;
+uniform float sunAnimationTime;
+
+// These number are common accepted for good noise generation
+const float x_hash = 127.1;
+const float y_hash = 311.7;
+const float scaler = 43758.5453123;
+
+// This creates randoms that would result in something like tv static -->
+float getRandoms(vec2 pos) {
+	float computedHash = pos.x * x_hash + pos.y * y_hash;
+	float computeSinValue = sin(computedHash);
+	float scaledHash = computeSinValue * scaler;
+	float decScaledHash = fract(scaledHash);
+	return decScaledHash;
+}
+
+float createNoiseGroups(vec2 pos) {
+	vec2 blockPos = floor(pos); // give the whole number
+	vec2 posInBlock = fract(pos); // give decimal part
+	
+	// get a random value for each corner of this block
+	float bottomLeft = getRandoms(blockPos);
+    float bottomRight = getRandoms(blockPos + vec2(1.0, 0.0));
+    float topLeft = getRandoms(blockPos + vec2(0.0, 1.0));
+    float topRight = getRandoms(blockPos + vec2(1.0, 1.0));
+	
+	// blend top and bottom edges then combine them
+    float brightnessBottom = bottomLeft + (bottomRight - bottomLeft) * posInBlock.x;
+    float brightnessTop = topLeft + (topRight - topLeft) * posInBlock.x;
+    float brightnessTotal = brightnessBottom + (brightnessTop - brightnessBottom) * posInBlock.y;
+
+    return brightnessTotal;
+}
+
+// Makes layers of noise producing the sun-like affect. 
+// We loose contribute less each time so that we get tiny details too.
+float noiseLayer(vec2 pos) {
+	float totalNoise = 0.0;
+	float scale = 1.0;
+	float howMuch = 0.5;
+	
+	for (int layer = 0; layer < 8; layer++) {
+        totalNoise += howMuch * createNoiseGroups(pos * scale);
+        scale *= 2.0;
+        howMuch *= 0.5;
+    }
+    return totalNoise;
+}
 
 void main()
 {    
-    if (fUseTexture > 0.5){
+    if (partOfSun > 0.5) {
+		float animOffset = sunAnimationTime * 0.02;
+		
+		// grab noise 3 positions inorder to make sure we get no banding
+		vec2 frontFacePos = vec2(fragmentPosition.x + animOffset, fragmentPosition.y + animOffset);
+		vec2 sideFacePos = vec2(fragmentPosition.z + animOffset, fragmentPosition.y + animOffset);
+		vec2 topFacePos = vec2(fragmentPosition.x + animOffset, fragmentPosition.z + animOffset);
+
+		// decide what how much to should take
+        float xWeight = abs(fragmentPosition.x);
+		float yWeight = abs(fragmentPosition.y);
+		float zWeight = abs(fragmentPosition.z);
+		float totalWeight = xWeight + yWeight + zWeight;
+		
+		// get a value based on their weight
+		float brightFactor = (noiseLayer(sideFacePos * 8.0) * xWeight + noiseLayer(topFacePos * 8.0) * yWeight + noiseLayer(frontFacePos * 8.0) * zWeight) / totalWeight;
+		
+        vec4 deepRed = vec4(0.6, 0.0, 0.0, 1.0);
+        vec4 orange = vec4(1.0, 0.4, 0.0, 1.0);
+        vec4 brightYellow = vec4(1.0, 0.95, 0.4, 1.0);
+        
+        vec4 sunColor;
+        float howFarBetweenColors;
+        
+		// lower half of brightness goes deep red to orange, upper half goes orange to yellow
+        if (brightFactor < 0.4) {
+            howFarBetweenColors = brightFactor / 0.4;
+            sunColor.r = deepRed.r + (orange.r - deepRed.r) * howFarBetweenColors;
+            sunColor.g = deepRed.g + (orange.g - deepRed.g) * howFarBetweenColors;
+            sunColor.b = deepRed.b + (orange.b - deepRed.b) * howFarBetweenColors;
+        } else {
+            howFarBetweenColors = (brightFactor - 0.4) / 0.6;
+            sunColor.r = orange.r + (brightYellow.r - orange.r) * howFarBetweenColors;
+            sunColor.g = orange.g + (brightYellow.g - orange.g) * howFarBetweenColors;
+            sunColor.b = orange.b + (brightYellow.b - orange.b) * howFarBetweenColors;
+        }
+        sunColor.a = 1.0;
+        
+        gl_FragColor = sunColor;
+    } else if (fUseTexture > 0.5){
         gl_FragColor = texture2D(uTexture, fTexCoord);
     } else {
         gl_FragColor = fColor;

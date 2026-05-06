@@ -14,7 +14,7 @@ var textures = {};
 
 // --- scene settings ---
 const SUBDIVISIONS = 4; // sphere smoothness
-const SKYBOX_SIZE = 5.0
+const SKYBOX_SIZE = 10.0
 const NUM_STARS = 500; // number of random stars scattered on the skybox walls
 const MOVE_SPEED = 0.05;
 const MOUSE_DPI = 0.005;
@@ -67,9 +67,12 @@ var cube_vertices = [
     vec4( SKYBOX_SIZE, -SKYBOX_SIZE, -SKYBOX_SIZE, 1.0)
 ];
 
-// --- sun geometry ---
+// --- sun geometry and animation ---
 var sunIndex = 0;
 var sunPoints = [];
+var partOfSunTunnle
+var sunAnimationTimeTunnle;
+var currSunTime = 0.0;
 
 // --- planets ---
 var planets = [];
@@ -284,7 +287,7 @@ window.onload = function init() {
     }
 
     // scale sphere
-    var sunScale = 0.2;
+    var sunScale = 1.0;
     for (var i = 0; i < sunPoints.length; i++) {
         vertices.push(vec4(
             sunPoints[i][0] * sunScale,
@@ -302,11 +305,11 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b
-    buildPlanet(0.50,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null); //yellow
-    buildPlanet(1.25,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null); //orange
-    buildPlanet(1.75,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
-    buildPlanet(2.75,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
-    buildPlanet(4.00,  0.0,   0.50,  0.0003,  0.0,  0.0,  0.0, "jupiter"); //jupiter
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
+    buildPlanet(7.00,  0.0,   0.50,  0.0003,  0.0,  0.0,  0.0, "jupiter"); //jupiter
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -334,7 +337,9 @@ window.onload = function init() {
 
     uUseTextureLoc = gl.getUniformLocation(program, "uUseTexture");
     var uTextureLoc = gl.getUniformLocation(program, "uTexture");
-
+	
+	sunAnimationTimeTunnle = gl.getUniformLocation(program, "sunAnimationTime");
+	partOfSunTunnle = gl.getUniformLocation(program, "partOfSun");
 
     loadTexture("earth", "earth");
     loadTexture("mars", "mars");
@@ -425,7 +430,7 @@ window.onload = function init() {
 
 
 var render = function() {
-
+	console.log(eye);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     var atX = Math.cos(theta) * Math.sin(phi);
@@ -440,7 +445,12 @@ var render = function() {
 
     gl.drawArrays(gl.TRIANGLES, 0, 36); // skybox
     gl.drawArrays(gl.POINTS, 36, NUM_STARS); // stars
-    gl.drawArrays(gl.TRIANGLES, 36 + NUM_STARS, sunIndex); // sun
+    
+	currSunTime += 0.01;
+	gl.uniform1f(sunAnimationTimeTunnle, currSunTime);
+	gl.uniform1f(partOfSunTunnle, 1.0);
+	gl.drawArrays(gl.TRIANGLES, 36 + NUM_STARS, sunIndex);
+	gl.uniform1f(partOfSunTunnle, 0.0);
 
     // planets and matrix multiplaction for orbit
     for (var i = 0; i < planets.length; i++) {

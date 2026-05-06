@@ -132,7 +132,7 @@ float noiseLayer(vec2 pos) {
 void main()
 {    
     if (partOfSun > 0.5) {
-		float animOffset = sunAnimationTime * 0.02;
+		float animOffset = sunAnimationTime * 0.05;
 		
 		// grab noise 3 positions inorder to make sure we get no banding
 		vec2 frontFacePos = vec2(fragmentPosition.x + animOffset, fragmentPosition.y + animOffset);

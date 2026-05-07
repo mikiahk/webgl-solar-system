@@ -79,6 +79,13 @@ var planets = [];
 var spherePoints = [];
 var sphereCount = 0;
 
+// --- UFO ---
+var ufo = {
+    height: 0.6,
+    start: 0,
+    count: 0
+};
+
 // -----------------------------------------------------------------------
 // --- sun geometery helpers ---
 // -----------------------------------------------------------------------
@@ -217,6 +224,111 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
     return planet;
 }
 
+function buildUFO() {
+    //THis is the number of circle segments
+    var n = 40;
+
+    var verts = [];
+    var cols = [];
+
+    //creates circular rings of the UFO
+    function ring(radius, y) {
+        var pts = [];
+        for (var i = 0; i < n; i++) {
+            var angle = (i / n) * 2 * Math.PI;
+            var x = radius * Math.cos(angle);
+            var z = radius * Math.sin(angle);
+            pts.push({ x: x, y: y, z: z });
+        }
+        return pts;
+    }
+
+    /**
+     * Fills in the top and bottom circles of UFO. Just a fan of triangles
+     * Give fan: the ring; x, y, z center points; the color of the ring for ufo
+     **/
+    function fan(ring, cx, cy, cz, r, g, b) {
+        for (var i = 0; i < n; i++) {
+            var next = (i + 1) % n;
+            verts.push(vec4(cx,cy,cz,1));                               cols.push(vec4(r,g,b,1));
+            verts.push(vec4(ring[next].x,ring[next].y,ring[next].z,1)); cols.push(vec4(r,g,b,1));
+            verts.push(vec4(ring[i].x,ring[i].y,ring[i].z,1));          cols.push(vec4(r,g,b,1));
+        }
+    }
+
+    /**
+     * Grab 2 points from ringA and two points from ringB and go around the ring and 
+     * connect them with triangles
+     */
+    function stitch(ringA, ringB, r, g, b) {
+        for (var i = 0; i < n; i++) {
+            var next = (i + 1) % n;
+            var a0=ringA[i], a1=ringA[next], b0=ringB[i], b1=ringB[next];
+
+            // triangle 1
+            verts.push(vec4(a0.x,a0.y,a0.z,1)); cols.push(vec4(r,g,b,1));
+            verts.push(vec4(a1.x,a1.y,a1.z,1)); cols.push(vec4(r,g,b,1));
+            verts.push(vec4(b1.x,b1.y,b1.z,1)); cols.push(vec4(r,g,b,1));
+
+            // triangle 2
+            verts.push(vec4(a0.x,a0.y,a0.z,1)); cols.push(vec4(r,g,b,1));
+            verts.push(vec4(b1.x,b1.y,b1.z,1)); cols.push(vec4(r,g,b,1));
+            verts.push(vec4(b0.x,b0.y,b0.z,1)); cols.push(vec4(r,g,b,1));
+        }
+    }
+
+    // building rings for the ufo shape
+    // basically just a bunch of rings stacked on top of each other
+    var rOuter  = ring(0.35,  0.00);
+    var rMidTop = ring(0.25,  0.03);
+    var rInner  = ring(0.12,  0.05);
+    var rMidBot = ring(0.25, -0.03);
+    var rBot    = ring(0.12, -0.06);
+
+    // connecting rings together and then adding top and bottom to close
+    fan(rInner, 0, 0.06, 0,   0.55, 0.58, 0.62);
+    stitch(rOuter,  rMidTop, 0.35, 0.35, 0.38);
+    stitch(rMidTop, rInner,  0.80, 0.85, 0.90);
+
+    stitch(rMidBot, rOuter,  0.30, 0.30, 0.33);
+    stitch(rBot,    rMidBot, 0.50, 0.52, 0.55);
+    fan(rBot,   0, -0.07, 0, 0.25, 0.25, 0.28);
+
+    // dome on top
+    var dBaseR = 0.10;
+    var dBaseY = 0.06;
+    var dPeakY = 0.12;
+    var numBands = 6;
+
+    var domeRings = [];
+    // lat - latitude of rings
+    for (var lat = 0; lat < numBands; lat++) {
+        //break 90 degrees into 6 steps for each
+        var t = (lat / numBands) * (Math.PI / 2); //step of the angle
+        var r = dBaseR * Math.cos(t); // radius of the ring
+        var y = dBaseY + (dPeakY - dBaseY) * Math.sin(t); //heihgt of ring
+        domeRings.push(ring(r, y));
+    }
+
+    //same thing to do dome 6 rings then stitch
+    for (var i = 0; i < domeRings.length - 1; i++) {
+        stitch(domeRings[i], domeRings[i+1], 0.5, 0.8, 0.75);
+    }
+
+    // cap the top of the dome
+    fan(domeRings[domeRings.length - 1], 0, dPeakY, 0, 0.5, 0.8, 0.75);
+
+    ufo.start = vertices.length;
+    ufo.count = verts.length;
+
+    // push everything into the global arrays
+    for (var i = 0; i < verts.length; i++) {
+        vertices.push(verts[i]);
+        colorsArray.push(cols[i]);
+        texCoordArray.push(vec2(0.0, 0.0));
+    }
+}
+
 function loadTexture(name, imageId){
     var tex = gl.createTexture();
     var image = document.getElementById(imageId);
@@ -310,6 +422,8 @@ window.onload = function init() {
     buildPlanet(3.50,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
     buildPlanet(5.00,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
     buildPlanet(7.00,  0.0,   0.50,  0.0003,  0.0,  0.0,  0.0, "jupiter"); //jupiter
+
+    buildUFO();
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -476,6 +590,14 @@ var render = function() {
     }
 
     gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
+    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+
+    
+    var ufoMV = mult(mvMatrix, translate(4.2, ufo.height, 0));
+    gl.uniform1f(uUseTextureLoc, 0.0);
+    gl.uniform1f(partOfSunTunnle, 0.0);
+    gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
+    gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
     gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
 
     requestAnimFrame(render);

@@ -524,11 +524,11 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b    texture      shininess
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null,        10.0); //yellow
-    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null,        30.0); //orange
-    buildPlanet(3.50,  0.0,   0.18,  0.0007,  1.0,  1.0,  1.0, "earth",     50.0); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0005,  1.0,  1.0,  1.0, "mars",      20.0); //mars
-    buildPlanet(7.00,  0.0,   0.50,  0.0003,  1.0,  1.0,  1.0, "jupiter",   80.0); //jupiter
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 10.0); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0012,  1.0,  1.0,  1.0, "venus", 30.0); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0007,  1.0,  1.0,  1.0, "earth", 50.0); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0005,  1.0,  1.0,  1.0, "mars", 20.0); //mars
+    buildPlanet(7.00,  0.0,   0.50,  0.0003,  1.0,  1.0,  1.0, "jupiter", 80.0); //jupiter
 
     buildUFO();
 
@@ -562,6 +562,8 @@ window.onload = function init() {
 	sunAnimationTimeTunnle = gl.getUniformLocation(program, "sunAnimationTime");
 	partOfSunTunnle = gl.getUniformLocation(program, "partOfSun");
 
+	loadTexture("mercury", "mercury");
+	loadTexture("venus", "venus");
     loadTexture("earth", "earth");
     loadTexture("mars", "mars");
     loadTexture("jupiter", "jupiter");

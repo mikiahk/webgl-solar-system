@@ -110,7 +110,7 @@ var ufo = {
 
 // --- Phong Use ---
 var lightPosition = vec4(0.0, 0.0, 0.0, 1.0);
-var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
+var lightAmbient = vec4(0.05, 0.05, 0.05, 1.0);
 var lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
 var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
 

@@ -388,12 +388,27 @@ function buildUFO() {
     ufo.pos = FLIGHT_PATH[0];
 
     // push everything into the global arrays
-    for (var i = 0; i < verts.length; i++) {
-        vertices.push(verts[i]);
-        colorsArray.push(cols[i]);
-        texCoordArray.push(vec2(0.0, 0.0));
-        normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
-    }
+    for (var i = 0; i < verts.length; i += 3) {
+		var v0 = verts[i];
+		var v1 = verts[i + 1];
+		var v2 = verts[i + 2];
+
+		var ax = v1[0] - v0[0], ay = v1[1] - v0[1], az = v1[2] - v0[2];
+		var bx = v2[0] - v0[0], by = v2[1] - v0[1], bz = v2[2] - v0[2];
+
+		var nx = az * by - ay * bz;
+		var ny = ax * bz - az * bx;
+		var nz = ay * bx - ax * by;
+		var len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+		var normal = vec4(nx/len, ny/len, nz/len, 0.0);
+
+		for (var j = 0; j < 3; j++) {
+			vertices.push(verts[i + j]);
+			colorsArray.push(cols[i + j]);
+			texCoordArray.push(vec2(0.0, 0.0));
+			normalsArray.push(normal);
+		}
+	}
 }
 
 function loadTexture(name, imageId){
@@ -732,62 +747,53 @@ var render = function() {
         gl.uniform1f(shininessLoc, planet.shininess);
         gl.drawArrays(gl.TRIANGLES, planet.start, planet.count);
     }
-	gl.uniform1f(lightingLoc, 0.0);
-
-    gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
-    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
-
-
+ 
 //------------------------- autoflight and ufo generation --------------
 
-    if(autoFlight){
+    gl.uniform1f(uUseTextureLoc, 0.0);
+    gl.uniform1f(partOfSunTunnle, 0.0);
+    gl.uniform1f(shininessLoc, 40.0);
+    var ufoMV = mult(mvMatrix, translate(ufo.pos));
+    gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
+    gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
+    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+ 
+	gl.uniform1f(lightingLoc, 0.0);
+ 
+    gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
+    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+	
+	if(autoFlight){
         flightT = (flightT + FLIGHT_SPEED) % 1.0;
-
+ 
         var ufoPos = checkPath(flightT);
-
+ 
         var sunDirX = ufoPos[0];
         var sunDirY = ufoPos[1];
         var sunDirZ = ufoPos[2];
-        var sunLen = Math.sqrt(sunDirX*sunDirX + sunDirY*sunDirY + sunDirZ*sunDirZ) || 1;
-
+        var sunLen = Math.sqrt(sunDirX*sunDirX + sunDirY*sunDirY + sunDirZ*sunDirZ);
+ 
         sunDirX /= sunLen;
         sunDirY /= sunLen;
         sunDirZ /= sunLen;
-
+ 
         var camDist = 2.5;
-
+ 
         eye[0] = ufoPos[0] + sunDirX * camDist;
         eye[1] = ufoPos[1] + sunDirY * camDist;
         eye[2] = ufoPos[2] + sunDirZ * camDist;
-
+ 
         var lookAtPos = vec3(ufoPos[0], ufoPos[1], ufoPos[2]);
-
+ 
         var dirX = lookAtPos[0] - eye[0];
         var dirY = lookAtPos[1] - eye[1];
         var dirZ = lookAtPos[2] - eye[2];
         var dist = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
-
+ 
         theta = Math.asin(dirY / dist);
         phi = Math.atan2(dirX, -dirZ);
-
+ 
         ufo.pos = vec3(ufoPos[0], ufoPos[1], ufoPos[2]);
-
-        mvMatrix = lookAt(eye, lookAtPos, up);
-        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
-
-        var ufoMV = mult(mvMatrix, translate(ufo.pos));
-        gl.uniform1f(uUseTextureLoc, 0.0);
-        gl.uniform1f(partOfSunTunnle, 0.0);
-        gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
-        gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
-        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
-    }else{
-        var ufoMV = mult(mvMatrix, translate(ufo.pos));
-        gl.uniform1f(uUseTextureLoc, 0.0);
-        gl.uniform1f(partOfSunTunnle, 0.0);
-        gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
-        gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
-        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
     }
 
     requestAnimFrame(render);

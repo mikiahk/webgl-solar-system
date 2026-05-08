@@ -528,10 +528,10 @@ window.onload = function init() {
     buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 30.0); //orange
     buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 50.0); //earth
     buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 20.0); //mars
-    buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 80.0); //jupiter
-    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 80.0); //saturn
-    buildPlanet(11.00,  0.0,   0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 80.0); //uranus
-    buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 80.0); //neptune
+    buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 60.0); //jupiter
+    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 5.0); //saturn
+    buildPlanet(11.00,  0.0,   0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
+    buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 100.0); //neptune
 
     buildUFO();
 

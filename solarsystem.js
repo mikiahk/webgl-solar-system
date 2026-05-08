@@ -86,6 +86,23 @@ var ufo = {
     count: 0
 };
 
+// --- Phong Use ---
+var lightPosition = vec4(0.0, 0.0, 0.0, 1.0);
+var lightAmbient = vec4(0.4, 0.4, 0.4, 1.0);
+var lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+
+var materialAmbient = vec4(1.0, 1.0, 1.0, 1.0);
+var materialDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+var materialSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+var materialShininess = 20.0;
+
+var ambientProduct, diffuseProduct, specularProduct;
+
+var eyeLoc, lightingLoc, shininessLoc;
+
+var normalsArray = [];
+
 // -----------------------------------------------------------------------
 // --- sun geometery helpers ---
 // -----------------------------------------------------------------------
@@ -183,7 +200,7 @@ function createSphere() {
 // -----------------------------------------------------------------------
 // --- build planets ---
 // -----------------------------------------------------------------------
-function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
+function buildPlanet(distance, height, size, speed, r, g, b, textureName, shininess) {
     var start = vertices.length;
     var color = vec4(r, g, b, 1.0);
 
@@ -196,6 +213,7 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
             1.0
         ));
         colorsArray.push(color);
+		normalsArray.push(vec4(p[0], p[1], p[2], 0.0));
 
         if(textureName){
             var u = 0.5 + Math.atan2(p[2], p[0]) / (2.0 * Math.PI);
@@ -217,7 +235,9 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName) {
         textureName: textureName || null,
         orbitAngle: (Math.random() * 2 * Math.PI), // random starting orbit
         // orbitAngle: 0.0 // same starting orbit
-		selfRotationAngle: 0.0
+		selfRotationAngle: 0.0,
+		// given shininess or default
+		shininess: shininess || materialShininess
     };
 
     planets.push(planet);
@@ -283,7 +303,7 @@ function buildUFO() {
     var rMidTop = ring(0.25,  0.03);
     var rInner  = ring(0.12,  0.05);
     var rMidBot = ring(0.25, -0.03);
-    var rBot    = ring(0.12, -0.06);
+    var rBot = ring(0.12, -0.06);
 
     // connecting rings together and then adding top and bottom to close
     fan(rInner, 0, 0.06, 0,   0.55, 0.58, 0.62);
@@ -291,8 +311,8 @@ function buildUFO() {
     stitch(rMidTop, rInner,  0.80, 0.85, 0.90);
 
     stitch(rMidBot, rOuter,  0.30, 0.30, 0.33);
-    stitch(rBot,    rMidBot, 0.50, 0.52, 0.55);
-    fan(rBot,   0, -0.07, 0, 0.25, 0.25, 0.28);
+    stitch(rBot, rMidBot, 0.50, 0.52, 0.55);
+    fan(rBot, 0, -0.07, 0, 0.25, 0.25, 0.28);
 
     // dome on top
     var dBaseR = 0.10;
@@ -326,6 +346,7 @@ function buildUFO() {
         vertices.push(verts[i]);
         colorsArray.push(cols[i]);
         texCoordArray.push(vec2(0.0, 0.0));
+		normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
     }
 }
 
@@ -413,17 +434,20 @@ window.onload = function init() {
     for (var i = 0; i < nonPlanetCount; i++){
         texCoordArray.push(vec2(0.0, 0.0)); // placeholder to keep alignment
     }
+	for (var i = 0; i < nonPlanetCount; i++){
+		normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
+	}
 
     createSphere();
 
-    //          dist   height size   speed    r     g     b
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null); //yellow
-    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null); //orange
-    buildPlanet(3.50,  0.0,   0.18,  0.0007,  0.0,  0.0,  0.0, "earth"); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0005,  0.0,  0.0,  0.0, "mars"); //mars
-    buildPlanet(7.00,  0.0,   0.50,  0.0003,  0.0,  0.0,  0.0, "jupiter"); //jupiter
-
-    buildUFO();
+    //          dist   height size   speed    r     g     b shininess
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null, 10.0); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null, 30.0); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0007,  1.0,  1.0,  1.0, "earth", 50.0); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0005,  1.0,  1.0,  1.0, "mars", 20.0); //mars
+    buildPlanet(7.00,  0.0,   0.50,  0.0003,  1.0,  1.0,  1.0, "jupiter", 80.0); //jupiter
+	
+	buildUFO();
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -459,10 +483,36 @@ window.onload = function init() {
     loadTexture("mars", "mars");
     loadTexture("jupiter", "jupiter");
 //------------------
-    modelView  = gl.getUniformLocation(program, "modelView");
-    projection = gl.getUniformLocation(program, "projection");
+	
+	var nBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
 
+	var vNormal = gl.getAttribLocation(program, "vNormal");
+	gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(vNormal);
+	
+//------------------
+	
+	modelView  = gl.getUniformLocation(program, "modelView");
+	projection = gl.getUniformLocation(program, "projection");
 
+	ambientProduct = mult(lightAmbient, materialAmbient);
+	diffuseProduct = mult(lightDiffuse, materialDiffuse);
+	specularProduct = mult(lightSpecular, materialSpecular);
+
+	gl.uniform4fv( gl.getUniformLocation(program,"ambientProduct"),flatten(ambientProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"diffuseProduct"),flatten(diffuseProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"specularProduct"),flatten(specularProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"lightPosition"),flatten(lightPosition) );
+	gl.uniform1f( gl.getUniformLocation(program,"shininess"),materialShininess );
+
+	eyeLoc = gl.getUniformLocation(program, "eyePosition");
+	lightingLoc = gl.getUniformLocation(program, "lighting");
+	shininessLoc = gl.getUniformLocation(program, "shininess");
+
+	gl.uniform1f(lightingLoc, 0.0);
+	
 // -----------------------------------------------------------------------
 // --- key handlers ---
 // -----------------------------------------------------------------------
@@ -553,6 +603,7 @@ var render = function() {
 
     mvMatrix = lookAt(eye, vec3(eye[0] + atX, eye[1] + atY, eye[2] + atZ), up);
     pMatrix  = perspective(fovy, aspect, NEAR, FAR);
+	var lightInEyeSpace = mult(mvMatrix, lightPosition);
 
     gl.uniformMatrix4fv(modelView,  false, flatten(mvMatrix));
     gl.uniformMatrix4fv(projection, false, flatten(pMatrix));
@@ -566,7 +617,14 @@ var render = function() {
 	gl.drawArrays(gl.TRIANGLES, 36 + NUM_STARS, sunIndex);
 	gl.uniform1f(partOfSunTunnle, 0.0);
 
-    // planets and matrix multiplaction for orbit
+	gl.uniform1f(lightingLoc, 1.0);
+	gl.uniform3fv(eyeLoc, flatten(eye));
+	gl.uniform4fv( gl.getUniformLocation(program,"ambientProduct"),flatten(ambientProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"diffuseProduct"),flatten(diffuseProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"specularProduct"),flatten(specularProduct) );
+	gl.uniform4fv( gl.getUniformLocation(program,"lightPosition"),flatten(lightInEyeSpace) );
+	
+	// planets and matrix multiplaction for orbit
     for (var i = 0; i < planets.length; i++) {
         var planet = planets[i];
         planet.orbitAngle += planet.speed;
@@ -585,9 +643,10 @@ var render = function() {
         }else{
             gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for other planets
         }
-
+		gl.uniform1f(shininessLoc, planet.shininess);
         gl.drawArrays(gl.TRIANGLES, planet.start, planet.count);
     }
+	gl.uniform1f(lightingLoc, 0.0);
 
     gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
     gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));

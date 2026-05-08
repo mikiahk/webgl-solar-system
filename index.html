@@ -25,6 +25,8 @@
 
     canvas {
       display: block;
+      border-radius: 10px;
+
     }
 	  
     .overlay-text {
@@ -65,9 +67,9 @@ uniform float shininess;
 uniform vec3 eyePosition;
 uniform float lighting;
 
-void main()
+void main() 
 {
-    vec3 pos = (modelView * vPosition).xyz;
+	vec3 pos = (modelView * vPosition).xyz;
 
     vec3 L;
 
@@ -105,7 +107,7 @@ void main()
     } else {
         fColor = vColor;
     }
-}
+} 
 </script>
 
 <script id="fragment-shader" type="x-shader/x-fragment">
@@ -168,8 +170,8 @@ float noiseLayer(vec2 pos) {
 }
 
 void main()
-{    
-	vec4 textureColorWithLight;
+{
+    vec4 textureColorWithLight;
     if (partOfSun > 0.5) {
 		float animOffset = sunAnimationTime * 0.05;
 		
@@ -211,7 +213,7 @@ void main()
         gl_FragColor = sunColor;
     } else if (fUseTexture > 0.5){
         vec4 textureColor = texture2D(uTexture, fTexCoord);
-		gl_FragColor = fColor * textureColor;
+        gl_FragColor = fColor * textureColor;
     } else {
         gl_FragColor = fColor;
     }
@@ -236,12 +238,13 @@ void main()
     Q/E — descend/ascend<br/>
     Click & drag — look around<br/>
     Scroll — zoom<br/>
+    F — auto-flight<br/>
     H — hide
   </p>
 </div>
 
-<img id="earth" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0">
-<img id="mars" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/mars_texture.jpg" crossorigin="anonymous" width="0" height="0">
+<img id="earth"   src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/earth_texture.jpg" crossorigin="anonymous" width="0" height="0">
+<img id="mars"    src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/mars_texture.jpg" crossorigin="anonymous" width="0" height="0">
 <img id="jupiter" src="https://cdn.jsdelivr.net/gh/mikiahk/webgl-solar-system@main/jupiter_texture.jpg" crossorigin="anonymous" width="0" height="0">
 
 </body>

@@ -194,7 +194,7 @@ function createSphere() {
 
     tetra(va, vb, vc, vd, SUBDIVISIONS);
     spherePoints = tmpPoints;
-    sphereCount  = tmpIndex;
+    sphereCount = tmpIndex;
 }
 
 // -----------------------------------------------------------------------

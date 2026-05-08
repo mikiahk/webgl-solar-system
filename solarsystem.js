@@ -36,10 +36,10 @@ var modelView, projection; // uniform locations for the matrices
 var aspect; // width/height ratio of the canvas
 
 // --- camera look direction ---
-var theta = -0.5; // vertical angle (radians)
+var theta = -0.75; // vertical angle (radians)
 var phi   = 0.0; // horizontal angle (radians)
 // --- camera orientation and position ---
-var eye = vec3(0.0, 2.0, 4.0);
+var eye = vec3(0.0, 4.5, 6.0);
 var at  = vec3(0.0, 0.0, 0.0);
 var up  = vec3(0.0, 1.0, 0.0);
 
@@ -47,6 +47,28 @@ var up  = vec3(0.0, 1.0, 0.0);
 var mouseDown  = false;
 var lastMouseX = 0;
 var lastMouseY = 0;
+
+// --- automatic flight globals ---
+var autoFlight = false;
+var flightT = 0.0; // current position along path
+const FLIGHT_SPEED = 0.0005;
+
+const FLIGHT_PATH = [ // x, y, z
+    [ 1.7,  2.4,  0.0],
+    [ 0.0,  2.6,  2.5],
+    [-3.5,  2.3,  0.0],
+    [-2.0,  3.0, -3.0],
+    [ 0.0,  2.2, -5.0],
+    [ 4.0,  2.8, -3.5],
+    [ 5.0,  2.4,  0.0],
+    [ 3.5,  3.2,  5.5],
+    [ 0.0, -2.0,  7.0],
+    [-5.0, -2.6,  5.0],
+    [-6.0,  3.0,  0.0],
+    [-3.0,  2.8, -5.0],
+    [ 0.5,  2.5, -2.0],
+    [ 1.7,  2.4,  0.0], // close loop
+]
 
 // --- initial tetrahedron vertices for spheres ---
 var va = vec4(0.0, 0.0, -1.0, 1);
@@ -194,7 +216,7 @@ function createSphere() {
 
     tetra(va, vb, vc, vd, SUBDIVISIONS);
     spherePoints = tmpPoints;
-    sphereCount = tmpIndex;
+    sphereCount  = tmpIndex;
 }
 
 // -----------------------------------------------------------------------
@@ -204,24 +226,47 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName, shinin
     var start = vertices.length;
     var color = vec4(r, g, b, 1.0);
 
-    for (var i = 0; i < spherePoints.length; i++) {
-        var p = spherePoints[i];
-        vertices.push(vec4(
-            p[0] * size,
-            p[1] * size,
-            p[2] * size,
-            1.0
-        ));
-        colorsArray.push(color);
-		normalsArray.push(vec4(p[0], p[1], p[2], 0.0));
+    for ( var i = 0; i < spherePoints.length; i+=3){
+        var pts = [spherePoints[i], spherePoints[i+1], spherePoints[i+2]];
+        var uvs = [];
+
+        for( var j = 0; j < 3; j++){
+            var p = pts[j];
+            vertices.push(vec4(
+                p[0] * size,
+                p[1] * size,
+                p[2] * size,
+                1.0
+            ));
+            colorsArray.push(color);
+            normalsArray.push(vec4(p[0], p[1], p[2], 0.0));
+
+            if(textureName){
+                var u = 0.5 + Math.atan2(p[2], p[0]) / (2.0 * Math.PI);
+                var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, p[1]))) / Math.PI;
+                uvs.push(vec2(u,v));    
+            }else {
+                uvs.push(vec2(0.0, 0.0));
+            }
+        }
 
         if(textureName){
-            var u = 0.5 + Math.atan2(p[2], p[0]) / (2.0 * Math.PI);
-            var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, p[1]))) / Math.PI;
-            texCoordArray.push(vec2(u,v)); // parametric calculation
-        }else{
-            texCoordArray.push(vec2(0.0, 0.0)); // placeholder to keep alignment
+            var u0 = uvs[0][0];
+            var u1 = uvs[1][0];
+            var u2 = uvs[2][0];
+
+            var maxU = Math.max(u0, u1, u2);
+            var minU = Math.min(u0, u1, u2);
+
+            if(maxU - minU > 0.5){
+                if(u0 < 0.5) uvs[0][0] += 1.0;
+                if(u1 < 0.5) uvs[1][0] += 1.0;
+                if(u2 < 0.5) uvs[2][0] += 1.0;
+            }
         }
+        texCoordArray.push(uvs[0]);
+        texCoordArray.push(uvs[1]);
+        texCoordArray.push(uvs[2]);
     }
 
     var planet = { 
@@ -303,7 +348,7 @@ function buildUFO() {
     var rMidTop = ring(0.25,  0.03);
     var rInner  = ring(0.12,  0.05);
     var rMidBot = ring(0.25, -0.03);
-    var rBot = ring(0.12, -0.06);
+    var rBot    = ring(0.12, -0.06);
 
     // connecting rings together and then adding top and bottom to close
     fan(rInner, 0, 0.06, 0,   0.55, 0.58, 0.62);
@@ -311,8 +356,8 @@ function buildUFO() {
     stitch(rMidTop, rInner,  0.80, 0.85, 0.90);
 
     stitch(rMidBot, rOuter,  0.30, 0.30, 0.33);
-    stitch(rBot, rMidBot, 0.50, 0.52, 0.55);
-    fan(rBot, 0, -0.07, 0, 0.25, 0.25, 0.28);
+    stitch(rBot,    rMidBot, 0.50, 0.52, 0.55);
+    fan(rBot,   0, -0.07, 0, 0.25, 0.25, 0.28);
 
     // dome on top
     var dBaseR = 0.10;
@@ -340,13 +385,14 @@ function buildUFO() {
 
     ufo.start = vertices.length;
     ufo.count = verts.length;
+    ufo.pos = FLIGHT_PATH[0];
 
     // push everything into the global arrays
     for (var i = 0; i < verts.length; i++) {
         vertices.push(verts[i]);
         colorsArray.push(cols[i]);
         texCoordArray.push(vec2(0.0, 0.0));
-		normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
+        normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
     }
 }
 
@@ -368,6 +414,30 @@ function loadTexture(name, imageId){
     image.onload = upload;
     if(image.complete) upload();
 
+}
+
+function interpolatePoint(p0, p1, p2, p3, t){
+    var t2 = t * t;
+    var t3 = t2 * t;
+    return [
+        0.5 * ((2*p1[0]) + (-p0[0]+p2[0])*t + (2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2 + (-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
+        0.5 * ((2*p1[1]) + (-p0[1]+p2[1])*t + (2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2 + (-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3),
+        0.5 * ((2*p1[2]) + (-p0[2]+p2[2])*t + (2*p0[2]-5*p1[2]+4*p2[2]-p3[2])*t2 + (-p0[2]+3*p1[2]-3*p2[2]+p3[2])*t3)
+    ];
+}
+
+function checkPath(t) {
+    var n = FLIGHT_PATH.length;
+    var pos = t * (n - 1);
+    var i = Math.floor(pos);
+    var f = pos - i;
+
+    var i0 = ((i - 1) + n) % n;
+    var i1 = i % n;
+    var i2 = (i + 1) % n;
+    var i3 = (i + 2) % n;
+
+    return interpolatePoint(FLIGHT_PATH[i0], FLIGHT_PATH[i1], FLIGHT_PATH[i2], FLIGHT_PATH[i3], f);
 }
 
 
@@ -433,21 +503,19 @@ window.onload = function init() {
     var nonPlanetCount = 36 + NUM_STARS + sunIndex;
     for (var i = 0; i < nonPlanetCount; i++){
         texCoordArray.push(vec2(0.0, 0.0)); // placeholder to keep alignment
+        normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
     }
-	for (var i = 0; i < nonPlanetCount; i++){
-		normalsArray.push(vec4(0.0, 0.0, 0.0, 0.0));
-	}
 
     createSphere();
 
-    //          dist   height size   speed    r     g     b shininess
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null, 10.0); //yellow
-    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null, 30.0); //orange
-    buildPlanet(3.50,  0.0,   0.18,  0.0007,  1.0,  1.0,  1.0, "earth", 50.0); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0005,  1.0,  1.0,  1.0, "mars", 20.0); //mars
-    buildPlanet(7.00,  0.0,   0.50,  0.0003,  1.0,  1.0,  1.0, "jupiter", 80.0); //jupiter
-	
-	buildUFO();
+    //          dist   height size   speed    r     g     b    texture      shininess
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  0.9,  0.8,  0.2, null,        10.0); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0012,  0.8,  0.3,  0.1, null,        30.0); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0007,  1.0,  1.0,  1.0, "earth",     50.0); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0005,  1.0,  1.0,  1.0, "mars",      20.0); //mars
+    buildPlanet(7.00,  0.0,   0.50,  0.0003,  1.0,  1.0,  1.0, "jupiter",   80.0); //jupiter
+
+    buildUFO();
 
     var cBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
@@ -483,8 +551,8 @@ window.onload = function init() {
     loadTexture("mars", "mars");
     loadTexture("jupiter", "jupiter");
 //------------------
-	
-	var nBuffer = gl.createBuffer();
+
+    var nBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
 
@@ -493,11 +561,11 @@ window.onload = function init() {
 	gl.enableVertexAttribArray(vNormal);
 	
 //------------------
-	
-	modelView  = gl.getUniformLocation(program, "modelView");
-	projection = gl.getUniformLocation(program, "projection");
 
-	ambientProduct = mult(lightAmbient, materialAmbient);
+    modelView  = gl.getUniformLocation(program, "modelView");
+    projection = gl.getUniformLocation(program, "projection");
+
+    ambientProduct = mult(lightAmbient, materialAmbient);
 	diffuseProduct = mult(lightDiffuse, materialDiffuse);
 	specularProduct = mult(lightSpecular, materialSpecular);
 
@@ -512,7 +580,7 @@ window.onload = function init() {
 	shininessLoc = gl.getUniformLocation(program, "shininess");
 
 	gl.uniform1f(lightingLoc, 0.0);
-	
+
 // -----------------------------------------------------------------------
 // --- key handlers ---
 // -----------------------------------------------------------------------
@@ -526,37 +594,52 @@ window.onload = function init() {
         var right = normalize(cross(forward, up));
 
         if (event.key.toLowerCase() === "w") {
-            eye[0] += forward[0] * MOVE_SPEED;
-            eye[1] += forward[1] * MOVE_SPEED;
-            eye[2] += forward[2] * MOVE_SPEED;
+            if(!autoFlight){
+                eye[0] += forward[0] * MOVE_SPEED;
+                eye[1] += forward[1] * MOVE_SPEED;
+                eye[2] += forward[2] * MOVE_SPEED;
+            }
         }
         if (event.key.toLowerCase() === "s") {
-            eye[0] -= forward[0] * MOVE_SPEED;
-            eye[1] -= forward[1] * MOVE_SPEED;
-            eye[2] -= forward[2] * MOVE_SPEED;
+            if(!autoFlight){
+                eye[0] -= forward[0] * MOVE_SPEED;
+                eye[1] -= forward[1] * MOVE_SPEED;
+                eye[2] -= forward[2] * MOVE_SPEED;
+            }
         }
         if (event.key.toLowerCase() === "a") {
-            eye[0] -= right[0] * MOVE_SPEED;
-            eye[1] -= right[1] * MOVE_SPEED;
-            eye[2] -= right[2] * MOVE_SPEED;
+            if(!autoFlight){
+                eye[0] -= right[0] * MOVE_SPEED;
+                eye[1] -= right[1] * MOVE_SPEED;
+                eye[2] -= right[2] * MOVE_SPEED;
+            }
         }
         if (event.key.toLowerCase() === "d") {
-            eye[0] += right[0] * MOVE_SPEED;
-            eye[1] += right[1] * MOVE_SPEED;
-            eye[2] += right[2] * MOVE_SPEED;
+            if(!autoFlight){
+                eye[0] += right[0] * MOVE_SPEED;
+                eye[1] += right[1] * MOVE_SPEED;
+                eye[2] += right[2] * MOVE_SPEED;
+            }
         }
         if (event.key.toLowerCase() == 'e'){
-            eye[1] += MOVE_SPEED
+            if(!autoFlight) eye[1] += MOVE_SPEED;
         }
         if (event.key.toLowerCase() == 'q'){
-            eye[1] -= MOVE_SPEED
+            if(!autoFlight) eye[1] -= MOVE_SPEED;
         }
 		// key handler event for showing controls
 		if (event.key.toLowerCase() === "h") {
 			controls = !controls;
 			document.getElementById("controls").style.display = controls ? "block" : "none";
 		}
-    
+        if (event.key.toLowerCase() === "f") {
+            autoFlight = !autoFlight;
+            if(controls){
+                controls = !controls;
+			    document.getElementById("controls").style.display = controls ? "block" : "none";
+            }
+            
+        }
     });
 
     document.addEventListener("wheel", function(event) {
@@ -580,13 +663,16 @@ window.onload = function init() {
             return;
         }
         document.body.style.cursor="none";
-        var dx = event.clientX - lastMouseX;
-        var dy = event.clientY - lastMouseY;
-        phi   += dx * MOUSE_DPI;
-        theta -= dy * MOUSE_DPI;
-        theta  = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, theta));
-        lastMouseX = event.clientX;
-        lastMouseY = event.clientY;
+
+        // if(!autoFlight){
+            var dx = event.clientX - lastMouseX;
+            var dy = event.clientY - lastMouseY;
+            phi   += dx * MOUSE_DPI;
+            theta -= dy * MOUSE_DPI;
+            theta  = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, theta));
+            lastMouseX = event.clientX;
+            lastMouseY = event.clientY;
+        // }
     });
 
     render();
@@ -603,7 +689,7 @@ var render = function() {
 
     mvMatrix = lookAt(eye, vec3(eye[0] + atX, eye[1] + atY, eye[2] + atZ), up);
     pMatrix  = perspective(fovy, aspect, NEAR, FAR);
-	var lightInEyeSpace = mult(mvMatrix, lightPosition);
+    var lightInEyeSpace = mult(mvMatrix, lightPosition);
 
     gl.uniformMatrix4fv(modelView,  false, flatten(mvMatrix));
     gl.uniformMatrix4fv(projection, false, flatten(pMatrix));
@@ -617,14 +703,14 @@ var render = function() {
 	gl.drawArrays(gl.TRIANGLES, 36 + NUM_STARS, sunIndex);
 	gl.uniform1f(partOfSunTunnle, 0.0);
 
-	gl.uniform1f(lightingLoc, 1.0);
+    gl.uniform1f(lightingLoc, 1.0);
 	gl.uniform3fv(eyeLoc, flatten(eye));
 	gl.uniform4fv( gl.getUniformLocation(program,"ambientProduct"),flatten(ambientProduct) );
 	gl.uniform4fv( gl.getUniformLocation(program,"diffuseProduct"),flatten(diffuseProduct) );
 	gl.uniform4fv( gl.getUniformLocation(program,"specularProduct"),flatten(specularProduct) );
 	gl.uniform4fv( gl.getUniformLocation(program,"lightPosition"),flatten(lightInEyeSpace) );
 	
-	// planets and matrix multiplaction for orbit
+// ------------- planets and matrix multiplaction for orbit-----------------
     for (var i = 0; i < planets.length; i++) {
         var planet = planets[i];
         planet.orbitAngle += planet.speed;
@@ -643,7 +729,7 @@ var render = function() {
         }else{
             gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for other planets
         }
-		gl.uniform1f(shininessLoc, planet.shininess);
+        gl.uniform1f(shininessLoc, planet.shininess);
         gl.drawArrays(gl.TRIANGLES, planet.start, planet.count);
     }
 	gl.uniform1f(lightingLoc, 0.0);
@@ -651,13 +737,58 @@ var render = function() {
     gl.uniform1f(uUseTextureLoc, 0.0); // set back to no texture for skybox, stars, etc.
     gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
 
-    
-    var ufoMV = mult(mvMatrix, translate(4.2, ufo.height, 0));
-    gl.uniform1f(uUseTextureLoc, 0.0);
-    gl.uniform1f(partOfSunTunnle, 0.0);
-    gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
-    gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
-    gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+
+//------------------------- autoflight and ufo generation --------------
+
+    if(autoFlight){
+        flightT = (flightT + FLIGHT_SPEED) % 1.0;
+
+        var ufoPos = checkPath(flightT);
+
+        var sunDirX = ufoPos[0];
+        var sunDirY = ufoPos[1];
+        var sunDirZ = ufoPos[2];
+        var sunLen = Math.sqrt(sunDirX*sunDirX + sunDirY*sunDirY + sunDirZ*sunDirZ) || 1;
+
+        sunDirX /= sunLen;
+        sunDirY /= sunLen;
+        sunDirZ /= sunLen;
+
+        var camDist = 2.5;
+
+        eye[0] = ufoPos[0] + sunDirX * camDist;
+        eye[1] = ufoPos[1] + sunDirY * camDist;
+        eye[2] = ufoPos[2] + sunDirZ * camDist;
+
+        var lookAtPos = vec3(ufoPos[0], ufoPos[1], ufoPos[2]);
+
+        var dirX = lookAtPos[0] - eye[0];
+        var dirY = lookAtPos[1] - eye[1];
+        var dirZ = lookAtPos[2] - eye[2];
+        var dist = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
+
+        theta = Math.asin(dirY / dist);
+        phi = Math.atan2(dirX, -dirZ);
+
+        ufo.pos = vec3(ufoPos[0], ufoPos[1], ufoPos[2]);
+
+        mvMatrix = lookAt(eye, lookAtPos, up);
+        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+
+        var ufoMV = mult(mvMatrix, translate(ufo.pos));
+        gl.uniform1f(uUseTextureLoc, 0.0);
+        gl.uniform1f(partOfSunTunnle, 0.0);
+        gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
+        gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
+        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+    }else{
+        var ufoMV = mult(mvMatrix, translate(ufo.pos));
+        gl.uniform1f(uUseTextureLoc, 0.0);
+        gl.uniform1f(partOfSunTunnle, 0.0);
+        gl.uniformMatrix4fv(modelView, false, flatten(ufoMV));
+        gl.drawArrays(gl.TRIANGLES, ufo.start, ufo.count);
+        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+    }
 
     requestAnimFrame(render);
 };

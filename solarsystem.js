@@ -486,13 +486,13 @@ window.onload = function init() {
 		} else if (c === 2) {
 			vertices.push(vec4(-SKYBOX_SIZE + offset, r1,   r2,   1));
 		} else if (c === 3) {
-			vertices.push(vec4( r1,   SKYBOX_SIZE - offset, r2,   1));
+			vertices.push(vec4( r1, SKYBOX_SIZE - offset, r2,   1));
 		} else if (c === 4) {
-			vertices.push(vec4( r1,  -SKYBOX_SIZE + offset, r2,   1));
+			vertices.push(vec4( r1, -SKYBOX_SIZE + offset, r2,   1));
 		} else if (c === 5) {
-			vertices.push(vec4( r1,   r2,   SKYBOX_SIZE - offset, 1));
+			vertices.push(vec4( r1, r2, SKYBOX_SIZE - offset, 1));
 		} else {
-			vertices.push(vec4( r1,   r2,  -SKYBOX_SIZE + offset, 1));
+			vertices.push(vec4( r1, r2, -SKYBOX_SIZE + offset, 1));
 		}
     }
 
@@ -529,7 +529,7 @@ window.onload = function init() {
     buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 200.0); //earth
     buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 65.0); //mars
     buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 60.0); //jupiter
-    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 80.0); //saturn
+    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 300.0); //saturn
     buildPlanet(11.00,  0.0,   0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
     buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 100.0); //neptune
 

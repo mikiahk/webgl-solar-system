@@ -13,7 +13,7 @@ var texBuffer;
 var textures = {};
 
 // --- scene settings ---
-const SUBDIVISIONS = 4; // sphere smoothness
+const SUBDIVISIONS = 6; // sphere smoothness
 const SKYBOX_SIZE = 20.0
 const NUM_STARS = 1000; // number of random stars scattered on the skybox walls
 const MOVE_SPEED = 0.05;

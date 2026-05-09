@@ -14,8 +14,8 @@ var textures = {};
 
 // --- scene settings ---
 const SUBDIVISIONS = 4; // sphere smoothness
-const SKYBOX_SIZE = 15.0
-const NUM_STARS = 700; // number of random stars scattered on the skybox walls
+const SKYBOX_SIZE = 20.0
+const NUM_STARS = 1000; // number of random stars scattered on the skybox walls
 const MOVE_SPEED = 0.05;
 const MOUSE_DPI = 0.005;
 var controls = true; // controls show if true
@@ -757,15 +757,15 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b    texture      shininess
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 10.0); //yellow
-    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 30.0); //orange
-    buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 90.0); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 20.0); //mars
-    buildMirrorPlanet(6.00,  0.0,   1.0,  0.0006); //
-    buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 60.0); //jupiter
-    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 80.0); //saturn
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 120.0); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 150.0); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 200.0); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 600.0); //mars
+    buildMirrorPlanet(14.00,  0.0,   1.0,  0.0006); //
+    buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 200.0); //jupiter
+    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 300.0); //saturn
     buildPlanet(11.00,  0.0,  0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
-    buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 100.0); //neptune
+    buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 10.0); //neptune
 
     buildUFO();
 

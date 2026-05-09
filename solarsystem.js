@@ -4,7 +4,7 @@
 var canvas;
 var gl;
 var program;
-
+ 
 // -- texture mapping globals ---
 var texCoordArray = [];
 var vTexCoordLoc;
@@ -124,6 +124,13 @@ var ambientProduct, diffuseProduct, specularProduct;
 var eyeLoc, lightingLoc, shininessLoc;
 
 var normalsArray = [];
+
+// --- Mirror (ray-traced) planet ---
+var mirrorPlanet = null;       // filled in by buildMirrorPlanet()
+var mirrorTexture = null;      // WebGL texture updated each frame
+var mirrorCanvas  = null;      // offscreen canvas for CPU ray trace
+var mirrorCtx     = null;
+const MIRROR_TEX_SIZE = 256;   // resolution of the reflection texture
 
 // -----------------------------------------------------------------------
 // --- sun geometery helpers ---
@@ -282,7 +289,13 @@ function buildPlanet(distance, height, size, speed, r, g, b, textureName, shinin
         // orbitAngle: 0.0 // same starting orbit
 		selfRotationAngle: 0.0,
 		// given shininess or default
-		shininess: shininess || materialShininess
+		shininess: shininess || materialShininess,
+        rayColor: (r === 0 && g === 0 && b === 0)
+            ? (textureName === 'earth'   ? [0.15, 0.45, 0.75]
+             : textureName === 'mars'    ? [0.75, 0.30, 0.10]
+             : textureName === 'jupiter' ? [0.80, 0.65, 0.45]
+             : [0.5, 0.5, 0.5])
+            : [r, g, b]
     };
 
     planets.push(planet);
@@ -455,6 +468,226 @@ function checkPath(t) {
     return interpolatePoint(FLIGHT_PATH[i0], FLIGHT_PATH[i1], FLIGHT_PATH[i2], FLIGHT_PATH[i3], f);
 }
 
+// -----------------------------------------------------------------------
+// --- Mirror planet: builds geometry identical to a normal planet -------
+// -----------------------------------------------------------------------
+function buildMirrorPlanet(distance, height, size, speed) {
+    var start = vertices.length;
+    var color = vec4(0.85, 0.90, 0.95, 1.0); // silver base
+
+    // Process vertices in groups of 3 (triangles) to fix the UV seam
+    for (var i = 0; i < spherePoints.length; i += 3) {
+        var pts = [spherePoints[i], spherePoints[i+1], spherePoints[i+2]];
+        var uvs = [];
+
+        for (var j = 0; j < 3; j++) {
+            var p = pts[j];
+            vertices.push(vec4(p[0]*size, p[1]*size, p[2]*size, 1.0));
+            colorsArray.push(color);
+            
+            // Add to normalsArray to keep WebGL attribute buffers aligned
+            normalsArray.push(vec4(p[0], p[1], p[2], 0.0));
+
+            var u = 0.5 + Math.atan2(p[2], p[0]) / (2.0 * Math.PI);
+            var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, p[1]))) / Math.PI;
+            uvs.push(vec2(u, v));
+        }
+
+        // Apply the same seam fix used in buildPlanet
+        var u0 = uvs[0][0];
+        var u1 = uvs[1][0];
+        var u2 = uvs[2][0];
+
+        var maxU = Math.max(u0, u1, u2);
+        var minU = Math.min(u0, u1, u2);
+
+        if (maxU - minU > 0.5) {
+            if (u0 < 0.5) uvs[0][0] += 1.0;
+            if (u1 < 0.5) uvs[1][0] += 1.0;
+            if (u2 < 0.5) uvs[2][0] += 1.0;
+        }
+
+        texCoordArray.push(uvs[0]);
+        texCoordArray.push(uvs[1]);
+        texCoordArray.push(uvs[2]);
+    }
+
+    mirrorPlanet = {
+        distance: distance,
+        height:   height,
+        size:     size,
+        speed:    speed,
+        start:    start,
+        count:    sphereCount,
+        orbitAngle:        Math.random() * 2 * Math.PI,
+        selfRotationAngle: 0.0,
+        worldX: 0, worldY: height, worldZ: 0
+    };
+}
+
+// -----------------------------------------------------------------------
+// --- CPU single-bounce ray tracer  ------------------------------------
+// -----------------------------------------------------------------------
+function dot3(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function sub3(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function add3(a,b){return [a[0]+b[0],a[1]+b[1],a[2]+b[2]];}
+function scale3(a,s){return [a[0]*s,a[1]*s,a[2]*s];}
+function norm3(a){var l=Math.sqrt(dot3(a,a));return l>0?[a[0]/l,a[1]/l,a[2]/l]:[0,0,0];}
+
+function raySphereT(ro,rd,center,radius){
+    var oc=sub3(ro,center);
+    var b=dot3(oc,rd),c=dot3(oc,oc)-radius*radius;
+    var disc=b*b-c;
+    if(disc<0)return Infinity;
+    var sq=Math.sqrt(disc),t1=-b-sq,t2=-b+sq;
+    if(t1>0.001)return t1;
+    if(t2>0.001)return t2;
+    return Infinity;
+}
+
+function dirToSkyColor(d){
+    var u=0.5+Math.atan2(d[2],d[0])/(2*Math.PI);
+    var v=0.5-Math.asin(Math.max(-1,Math.min(1,d[1])))/Math.PI;
+    var bx=Math.floor(u*80),by=Math.floor(v*40);
+    var h=Math.sin(bx*127.1+by*311.7)*43758.5453;
+    h=h-Math.floor(h);
+    if(h>0.985)return[255,255,255];
+    return[0,0,0];
+}
+
+function sunNoiseColor(pos,time){
+    function hash(x,y){var v=Math.sin(x*127.1+y*311.7)*43758.5453123;return v-Math.floor(v);}
+    function noiseLayer(px,py){
+        var total=0,scale=1,amp=0.5;
+        for(var l=0;l<8;l++){
+            var bx=Math.floor(px*scale),by=Math.floor(py*scale);
+            var fx=px*scale-bx,fy=py*scale-by;
+            var bl=hash(bx,by),br=hash(bx+1,by),tl=hash(bx,by+1),tr=hash(bx+1,by+1);
+            var bot=bl+(br-bl)*fx,top=tl+(tr-tl)*fx;
+            total+=amp*(bot+(top-bot)*fy);
+            scale*=2;amp*=0.5;
+        }
+        return total;
+    }
+    var ao=time*0.05;
+    var xW=Math.abs(pos[0]),yW=Math.abs(pos[1]),zW=Math.abs(pos[2]);
+    var tot=xW+yW+zW||0.001;
+    var bf=(noiseLayer((pos[0]+ao)*8,(pos[1]+ao)*8)*xW+
+            noiseLayer((pos[2]+ao)*8,(pos[1]+ao)*8)*yW+
+            noiseLayer((pos[0]+ao)*8,(pos[2]+ao)*8)*zW)/tot;
+    var r,g,b;
+    if(bf<0.4){var t=bf/0.4;r=Math.round((0.6+0.4*t)*255);g=Math.round(0.4*t*255);b=0;}
+    else{var t=(bf-0.4)/0.6;r=255;g=Math.round((0.4+0.55*t)*255);b=Math.round(0.4*t*255);}
+    return[r,g,b];
+}
+
+function traceRay(ro,rd,sceneData){
+    var bestT=Infinity,bestType='sky',bestObj=null,bestCenter=null;
+
+    var tSun=raySphereT(ro,rd,[0,0,0],1.0);
+    if(tSun<bestT){bestT=tSun;bestType='sun';}
+
+    for(var i=0;i<sceneData.planets.length;i++){
+        var pl=sceneData.planets[i];
+        var c=[pl.distance*Math.cos(pl.orbitAngle),pl.height,pl.distance*Math.sin(pl.orbitAngle)];
+        var t=raySphereT(ro,rd,c,pl.size);
+        if(t<bestT){bestT=t;bestType='planet';bestObj=pl;bestCenter=c;}
+    }
+
+    var tUFO=raySphereT(ro,rd,[4.2,sceneData.ufoHeight,0],0.42);
+    if(tUFO<bestT){bestT=tUFO;bestType='ufo';}
+
+    if(bestType==='sky')return dirToSkyColor(rd);
+
+    if(bestType==='sun'){
+        var hitPt=add3(ro,scale3(rd,bestT));
+        return sunNoiseColor(hitPt,sceneData.sunTime);
+    }
+
+    if(bestType==='ufo'){
+        var hitPt=add3(ro,scale3(rd,bestT));
+        var n=norm3(sub3(hitPt,[4.2,sceneData.ufoHeight,0]));
+        var diff=Math.max(0,dot3(n,norm3([-1,1,-1])));
+        var c=Math.round((0.35+0.55*diff)*255);
+        return[c,c,Math.round(c*1.05)];
+    }
+
+    if(bestType==='planet'){
+        var hitPt=add3(ro,scale3(rd,bestT));
+        var n=norm3(sub3(hitPt,bestCenter));
+        var toSun=norm3(sub3([0,0,0],hitPt));
+        var diff=Math.max(0.12,dot3(n,toSun));
+        var co=bestObj.rayColor;
+        return[Math.round(co[0]*diff*255),Math.round(co[1]*diff*255),Math.round(co[2]*diff*255)];
+    }
+    return[0,0,0];
+}
+
+function updateMirrorTexture() {
+    if (!mirrorPlanet) return;
+    var mp = mirrorPlanet;
+    var cx = mp.worldX, cy = mp.worldY, cz = mp.worldZ, radius = mp.size;
+    var camPos = [eye[0], eye[1], eye[2]];
+    var sceneData = { planets: planets, ufoHeight: ufo.height, sunTime: currSunTime };
+    var W = MIRROR_TEX_SIZE, H = MIRROR_TEX_SIZE;
+    var imgData = mirrorCtx.createImageData(W, H);
+    var data = imgData.data;
+
+    // Pre-calculate rotation to save operations inside the loop
+    var rot = mp.selfRotationAngle;
+    var cosR = Math.cos(rot);
+    var sinR = Math.sin(rot);
+
+    for (var py = 0; py < H; py++) {
+        for (var px = 0; px < W; px++) {
+            var u = (px + 0.5) / W;
+            var v = (py + 0.5) / H;
+
+            var phi_ = (u - 0.5) * 2 * Math.PI; 
+            var theta_ = (0.5 - v) * Math.PI;   // Was inverted (v*PI - PI/2)
+            
+            var localNx = Math.cos(theta_) * Math.cos(phi_);
+            var localNy = Math.sin(theta_);
+            var localNz = Math.cos(theta_) * Math.sin(phi_);
+
+            var worldNx = localNx * cosR + localNz * sinR;
+            var worldNy = localNy;
+            var worldNz = -localNx * sinR + localNz * cosR;
+
+            var N = [worldNx, worldNy, worldNz];
+            var hitPt = [cx + worldNx * radius, cy + worldNy * radius, cz + worldNz * radius];
+            
+            var toHit = norm3(sub3(hitPt, camPos));
+            var dDotN = dot3(toHit, N);
+            
+            var reflDir = norm3([
+                toHit[0] - 2 * dDotN * N[0],
+                toHit[1] - 2 * dDotN * N[1],
+                toHit[2] - 2 * dDotN * N[2]
+            ]);
+            var reflOrigin = add3(hitPt, scale3(N, 0.005));
+            
+            var col = traceRay(reflOrigin, reflDir, sceneData);
+            
+            var fresnel = Math.pow(1 - Math.max(0, -dDotN), 3);
+            var rim = Math.round(fresnel * 60);
+            
+            col[0] = Math.min(255, col[0] + rim);
+            col[1] = Math.min(255, col[1] + rim);
+            col[2] = Math.min(255, col[2] + rim);
+            
+            var idx = (py * W + px) * 4;
+            data[idx] = col[0]; 
+            data[idx+1] = col[1]; 
+            data[idx+2] = col[2]; 
+            data[idx+3] = 255;
+        }
+    }
+    mirrorCtx.putImageData(imgData, 0, 0);
+    gl.bindTexture(gl.TEXTURE_2D, mirrorTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mirrorCanvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+}
 
 window.onload = function init() {
 
@@ -486,13 +719,13 @@ window.onload = function init() {
 		} else if (c === 2) {
 			vertices.push(vec4(-SKYBOX_SIZE + offset, r1,   r2,   1));
 		} else if (c === 3) {
-			vertices.push(vec4( r1, SKYBOX_SIZE - offset, r2,   1));
+			vertices.push(vec4( r1,   SKYBOX_SIZE - offset, r2,   1));
 		} else if (c === 4) {
-			vertices.push(vec4( r1, -SKYBOX_SIZE + offset, r2,   1));
+			vertices.push(vec4( r1,  -SKYBOX_SIZE + offset, r2,   1));
 		} else if (c === 5) {
-			vertices.push(vec4( r1, r2, SKYBOX_SIZE - offset, 1));
+			vertices.push(vec4( r1,   r2,   SKYBOX_SIZE - offset, 1));
 		} else {
-			vertices.push(vec4( r1, r2, -SKYBOX_SIZE + offset, 1));
+			vertices.push(vec4( r1,   r2,  -SKYBOX_SIZE + offset, 1));
 		}
     }
 
@@ -524,13 +757,14 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b    texture      shininess
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 90.0); //mercury
-    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 80.0); //venus
-    buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 200.0); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 65.0); //mars
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 10.0); //yellow
+    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 30.0); //orange
+    buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 90.0); //earth
+    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 20.0); //mars
+    buildMirrorPlanet(6.00,  0.0,   1.0,  0.0006); //
     buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 60.0); //jupiter
-    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 300.0); //saturn
-    buildPlanet(11.00,  0.0,   0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
+    buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 80.0); //saturn
+    buildPlanet(11.00,  0.0,  0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
     buildPlanet(12.5,  0.0,   0.200,  0.00002,  1.0,  1.0,  1.0, "neptune", 100.0); //neptune
 
     buildUFO();
@@ -573,6 +807,22 @@ window.onload = function init() {
     loadTexture("saturn", "saturn");
     loadTexture("uranus", "uranus");
     loadTexture("neptune", "neptune");
+
+    // --- mirror planet: offscreen canvas + GL texture ---
+    mirrorCanvas = document.createElement('canvas');
+    mirrorCanvas.width  = MIRROR_TEX_SIZE;
+    mirrorCanvas.height = MIRROR_TEX_SIZE;
+    mirrorCtx = mirrorCanvas.getContext('2d');
+
+    mirrorTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, mirrorTexture);
+    // placeholder 1x1
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200,210,220,255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
 //------------------
 
     var nBuffer = gl.createBuffer();
@@ -755,9 +1005,32 @@ var render = function() {
         gl.uniform1f(shininessLoc, planet.shininess);
         gl.drawArrays(gl.TRIANGLES, planet.start, planet.count);
     }
- 
-//------------------------- autoflight and ufo generation --------------
 
+//-------------------------  ray trace --------------
+    if (mirrorPlanet) {
+        mirrorPlanet.orbitAngle      += mirrorPlanet.speed;
+        mirrorPlanet.selfRotationAngle += 0.0005 / mirrorPlanet.size;
+        var mx = mirrorPlanet.distance * Math.cos(mirrorPlanet.orbitAngle);
+        var mz = mirrorPlanet.distance * Math.sin(mirrorPlanet.orbitAngle);
+        mirrorPlanet.worldX = mx;
+        mirrorPlanet.worldY = mirrorPlanet.height;
+        mirrorPlanet.worldZ = mz;
+
+        // update ray-traced reflection texture
+        updateMirrorTexture();
+
+        var mirrorMV = mult(mvMatrix, translate(mx, mirrorPlanet.height, mz));
+        mirrorMV = mult(mirrorMV, rotate(mirrorPlanet.selfRotationAngle * (180/Math.PI), vec3(0,1,0)));
+        gl.uniformMatrix4fv(modelView, false, flatten(mirrorMV));
+        gl.uniform1f(uUseTextureLoc, 1.0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, mirrorTexture);
+        gl.drawArrays(gl.TRIANGLES, mirrorPlanet.start, mirrorPlanet.count);
+        gl.uniform1f(uUseTextureLoc, 0.0);
+        gl.uniformMatrix4fv(modelView, false, flatten(mvMatrix));
+    }
+
+//------------------------- autoflight and ufo generation --------------
     gl.uniform1f(uUseTextureLoc, 0.0);
     gl.uniform1f(partOfSunTunnle, 0.0);
     gl.uniform1f(shininessLoc, 40.0);

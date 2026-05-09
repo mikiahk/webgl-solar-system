@@ -127,7 +127,7 @@ const float x_hash = 127.1;
 const float y_hash = 311.7;
 const float scaler = 43758.5453123;
 
-// This creates randoms that would result in something like tv static -->
+// This creates randoms that would result in something like tv static
 float getRandoms(vec2 pos) {
 	float computedHash = pos.x * x_hash + pos.y * y_hash;
 	float computeSinValue = sin(computedHash);

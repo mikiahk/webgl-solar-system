@@ -524,10 +524,10 @@ window.onload = function init() {
     createSphere();
 
     //          dist   height size   speed    r     g     b    texture      shininess
-    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 10.0); //yellow
-    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 30.0); //orange
+    buildPlanet(1.70,  0.0,   0.08,  0.0100,  1.0,  1.0,  1.0, "mercury", 90.0); //mercury
+    buildPlanet(2.50,  0.0,   0.10,  0.0041,  1.0,  1.0,  1.0, "venus", 80.0); //venus
     buildPlanet(3.50,  0.0,   0.18,  0.0025,  1.0,  1.0,  1.0, "earth", 90.0); //earth
-    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 20.0); //mars
+    buildPlanet(5.00,  0.0,   0.25,  0.0013,  1.0,  1.0,  1.0, "mars", 65.0); //mars
     buildPlanet(7.00,  0.0,   0.50,  0.0002,  1.0,  1.0,  1.0, "jupiter", 60.0); //jupiter
     buildPlanet(9.00,  0.0,   0.45,  0.0001,  1.0,  1.0,  1.0, "saturn", 80.0); //saturn
     buildPlanet(11.00,  0.0,   0.220,  0.00003,  1.0,  1.0,  1.0, "uranus", 30.0); //uranus
